@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/fadhilsurya/mykonsul-mongo/config/config"
+	"github.com/fadhilsurya/mykonsul-mongo/config/db/redis"
 	"github.com/fadhilsurya/mykonsul-mongo/internal/middleware"
 	"github.com/fadhilsurya/mykonsul-mongo/internal/routes"
 	"github.com/gin-gonic/gin"
@@ -23,6 +24,8 @@ func main() {
 
 	config.InitConfig()
 	serverConfig := config.AppConfig
+
+	redis := redis.RedisClient(serverConfig.RedisConfig.Address, serverConfig.RedisConfig.Port)
 
 	ginMode := serverConfig.GinMode
 	if ginMode != "" {
@@ -40,7 +43,7 @@ func main() {
 	limiter := rate.NewLimiter(1, 5)
 	r.Use(middleware.RateLimitMiddleware(limiter))
 
-	routes.InitializeRoutes(r, &serverConfig)
+	routes.InitializeRoutes(r, &serverConfig, redis)
 
 	go func() {
 		fmt.Printf("listening to port : %v", serverConfig.App.Port)

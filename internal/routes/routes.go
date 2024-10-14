@@ -3,9 +3,10 @@ package routes
 import (
 	"github.com/fadhilsurya/mykonsul-mongo/config/config"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
-func InitializeRoutes(router *gin.Engine, appConfig *config.Config) {
+func InitializeRoutes(router *gin.Engine, appConfig *config.Config, rds *redis.Client) {
 
 	router.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -18,7 +19,7 @@ func InitializeRoutes(router *gin.Engine, appConfig *config.Config) {
 	taskGroup := router.Group("/tasks")
 	userGroup := router.Group("/users")
 
-	InitializedTask(taskGroup, *appConfig)
+	InitializedTask(taskGroup, *appConfig, rds)
 	InitializedUser(userGroup, *appConfig)
 
 }

@@ -7,10 +7,11 @@ import (
 	"github.com/fadhilsurya/mykonsul-mongo/internal/repository"
 	"github.com/fadhilsurya/mykonsul-mongo/internal/service"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func InitializedTask(router *gin.RouterGroup, appConfig config.Config) {
+func InitializedTask(router *gin.RouterGroup, appConfig config.Config, rds *redis.Client) {
 	var (
 		taskCollection *mongo.Collection = appConfig.Db.Collection("tasks")
 		userCollection *mongo.Collection = appConfig.Db.Collection("users")
@@ -20,7 +21,7 @@ func InitializedTask(router *gin.RouterGroup, appConfig config.Config) {
 
 		taskService service.TaskService = service.NewTaskService(taskRepo)
 
-		taskHandler handler.TaskHandler = handler.NewTaskHandler(taskService)
+		taskHandler handler.TaskHandler = handler.NewTaskHandler(taskService, rds)
 	)
 
 	router.POST("/", middleware.MiddlewareToken(appConfig, userRepo), taskHandler.CreateTask)

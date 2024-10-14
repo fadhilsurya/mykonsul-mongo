@@ -10,6 +10,7 @@ import (
 	"github.com/fadhilsurya/mykonsul-mongo/internal/requests"
 	"github.com/fadhilsurya/mykonsul-mongo/internal/service"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 type TaskHandler interface {
@@ -22,11 +23,13 @@ type TaskHandler interface {
 
 type taskHandler struct {
 	taskService service.TaskService
+	redisClient *redis.Client
 }
 
-func NewTaskHandler(ts service.TaskService) TaskHandler {
+func NewTaskHandler(ts service.TaskService, rds *redis.Client) TaskHandler {
 	return &taskHandler{
 		taskService: ts,
+		redisClient: rds,
 	}
 }
 

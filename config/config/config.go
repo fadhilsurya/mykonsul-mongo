@@ -60,7 +60,8 @@ func InitConfig() {
 
 	AppConfig.GinMode = viper.GetString("GIN_MODE")
 
-	AppConfig.RedisConfig
+	AppConfig.RedisConfig.Address = viper.GetString("REDIS_ADDRESS")
+	AppConfig.RedisConfig.Port = viper.GetString("REDIS_PORT")
 
 	if AppConfig.GinMode != "release" {
 		AppConfig.GinMode = ""

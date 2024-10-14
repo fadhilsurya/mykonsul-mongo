@@ -19,9 +19,9 @@ func InitializedTask(router *gin.RouterGroup, appConfig config.Config, rds *redi
 		taskRepo repository.TaskRepo = repository.NewTaskRepo(taskCollection)
 		userRepo repository.UserRepo = repository.NewUserRepo(userCollection)
 
-		taskService service.TaskService = service.NewTaskService(taskRepo)
+		taskService service.TaskService = service.NewTaskService(taskRepo, rds)
 
-		taskHandler handler.TaskHandler = handler.NewTaskHandler(taskService, rds)
+		taskHandler handler.TaskHandler = handler.NewTaskHandler(taskService)
 	)
 
 	router.POST("/", middleware.MiddlewareToken(appConfig, userRepo), taskHandler.CreateTask)

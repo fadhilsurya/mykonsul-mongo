@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/fadhilsurya/mykonsul-mongo/internal/repository"
 	"github.com/fadhilsurya/mykonsul-mongo/internal/requests"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 type TaskService interface {
@@ -21,12 +23,15 @@ type TaskService interface {
 }
 
 type taskService struct {
-	taskRepo repository.TaskRepo
+	taskRepo    repository.TaskRepo
+	redisClient *redis.Client
 }
 
-func NewTaskService(t repository.TaskRepo) TaskService {
+func NewTaskService(t repository.TaskRepo, rds *redis.Client) TaskService {
 	return &taskService{
-		taskRepo: t}
+		redisClient: rds,
+		taskRepo:    t,
+	}
 }
 
 func (t *taskService) CreateTask(ctx context.Context, req requests.ReqTasks, userId string) error {
@@ -46,10 +51,23 @@ func (t *taskService) CreateTask(ctx context.Context, req requests.ReqTasks, use
 		return err
 	}
 
+	// set to redis client
+	taskJSON, _ := json.Marshal(taskModel)
+	// set 12 hour
+	t.redisClient.Set(ctx, taskModel.TaskId, taskJSON, time.Hour*12)
+
 	return nil
 }
 
 func (t *taskService) GetOneTask(ctx context.Context, id string, userId string) (*model.Task, error) {
+
+	taskJSON, err := t.redisClient.Get(ctx, id).Result()
+	if err == nil {
+		var task model.Task
+		if err := json.Unmarshal([]byte(taskJSON), &task); err == nil {
+			return &task, nil
+		}
+	}
 
 	data, err := t.taskRepo.GetOneTask(ctx, id, userId)
 	if err != nil {
@@ -81,6 +99,7 @@ func (t *taskService) UpdateOneTask(ctx context.Context, taskId string, req requ
 	userId string, role string) error {
 	var (
 		modelTask model.Task
+		err       error
 	)
 
 	if req.Status != "done" && req.Status != "in-progress" && req.Status != "todo" {
@@ -100,24 +119,22 @@ func (t *taskService) UpdateOneTask(ctx context.Context, taskId string, req requ
 	modelTask.UpdatedAt = time.Now()
 
 	if role == "admin" {
-		err := t.taskRepo.UpdateTaskAdmin(ctx, taskId, modelTask)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		err = t.taskRepo.UpdateTaskAdmin(ctx, taskId, modelTask)
+	} else if role == "user" {
+		err = t.taskRepo.UpdateTask(ctx, taskId, modelTask, userId)
+	} else {
+		return errors.New("internal server error")
 	}
 
-	if role == "user" {
-		err := t.taskRepo.UpdateTask(ctx, taskId, modelTask, userId)
-		if err != nil {
-			return err
-		}
-
-		return nil
+	if err != nil {
+		return err
 	}
 
-	return errors.New("error internal server error")
+	// Update Redis cache
+	taskJSON, _ := json.Marshal(modelTask)
+	t.redisClient.Set(ctx, taskId, taskJSON, time.Hour)
+
+	return nil
 }
 
 func (t *taskService) DeleteOneTask(ctx context.Context, id string) error {
@@ -125,6 +142,8 @@ func (t *taskService) DeleteOneTask(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
+
+	t.redisClient.Del(ctx, id)
 
 	return nil
 }
